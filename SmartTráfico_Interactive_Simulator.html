@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100 overflow-x-hidden">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SmartTráfico - Gestión Vial Inteligente</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for Traffic Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    html, body {
+      max-width: 100vw;
+      overflow-x: hidden !important;
+      touch-action: pan-y; /* Restricts horizontal dragging gestures */
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Pulse glow effects */
+    .glow-red { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+    .glow-emerald { box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+    .glow-amber { box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); }
+  </style>
+</head>
+<body class="min-h-full flex flex-col bg-slate-950 text-slate-100 w-full overflow-x-hidden">
+
+  <!-- Header / Navigation Bar -->
+  <header id="main-header" class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 transition-colors duration-500 w-full">
+    <div class="max-w-7xl mx-auto px-4 h-auto min-h-[4rem] py-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+      
+      <!-- Logo & Title -->
+      <div class="flex items-center gap-3 self-center sm:self-auto">
+        <div id="app-logo-bg" class="p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/30 transition-all duration-500">
+          <i data-lucide="cpu" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-base sm:text-lg leading-none tracking-tight flex items-center gap-2">
+            SmartTráfico <span id="app-version-tag" class="bg-indigo-500/20 text-indigo-400 text-[10px] px-2 py-0.5 rounded-full font-medium border border-indigo-500/30 transition-all duration-500">Agente</span>
+          </h1>
+          <p class="text-[11px] text-slate-400" id="app-subtitle">Monitoreo Urbano e Inteligencia Artificial</p>
+        </div>
+      </div>
+
+      <!-- CENTERED ROLE SWITCHER -->
+      <div class="flex justify-center w-full sm:w-auto my-1 sm:my-0">
+        <div class="bg-slate-950 p-1 rounded-xl flex border border-slate-800 shadow-inner max-w-full">
+          <button id="btn-mode-agent" onclick="setMode('agent')" class="px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 bg-indigo-600 text-white shadow">
+            <i data-lucide="shield" class="w-3.5 h-3.5"></i> <span>Agente de Tránsito</span>
+          </button>
+          <button id="btn-mode-citizen" onclick="setMode('citizen')" class="px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+            <i data-lucide="user" class="w-3.5 h-3.5"></i> <span>Personal Natural</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Indicator -->
+      <div class="hidden lg:flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700 text-xs">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+        </span>
+        <span class="text-slate-300 font-medium">Sistema en Vivo</span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Responsive Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-x-hidden">
+
+    <!-- LEFT COLUMN: AI Camera Simulation Feed (7 Cols) -->
+    <section class="lg:col-span-7 flex flex-col gap-5 w-full max-w-full">
+      
+      <!-- Video / Camera Feed Box -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col w-full">
+        
+        <!-- Camera Controls Header -->
+        <div class="p-3 sm:p-4 border-b border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/60">
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <i data-lucide="video" class="w-4 h-4 text-indigo-400 flex-shrink-0"></i>
+            <span class="font-semibold text-xs sm:text-sm text-slate-200 flex-shrink-0">Cámara:</span>
+            <select id="camera-select" onchange="changeCamera(this.value)" class="w-full sm:w-auto bg-slate-800 border border-slate-700 text-slate-100 text-xs rounded-lg px-2.5 py-1.5 font-medium focus:outline-none">
+              <option value="cam1">CAM-01: Av. 30 de Agosto</option>
+              <option value="cam2">CAM-02: Sector Centro (Cra 8)</option>
+              <option value="cam3">CAM-03: Entrada UTP / Belmonte</option>
+              <option value="cam4">CAM-04: Viaducto Principal</option>
+            </select>
+          </div>
+
+          <button onclick="toggleYOLOOverlay()" id="toggle-yolo-btn" class="self-end sm:self-auto px-2.5 py-1.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-medium flex items-center gap-1.5">
+            <i data-lucide="scan" class="w-3.5 h-3.5"></i> Capa YOLO: <span id="yolo-status" class="font-bold text-emerald-400">ACTIVA</span>
+          </button>
+        </div>
+
+        <!-- Canvas Viewport -->
+        <div class="relative aspect-video bg-slate-950 overflow-hidden flex items-center justify-center w-full">
+          <canvas id="traffic-canvas" class="w-full h-full object-cover block"></canvas>
+
+          <!-- Top-Left HUD Badge -->
+          <div class="absolute top-2.5 left-2.5 bg-slate-950/80 backdrop-blur border border-slate-800 px-2.5 py-1 rounded-lg text-[11px] font-mono flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+            <span class="text-slate-200 font-bold" id="cam-code-display">CAM-01</span>
+          </div>
+
+          <!-- Top-Right Traffic Classification Badge -->
+          <div id="status-badge" class="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 glow-emerald">
+            <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+            <span id="status-text">FLUIDO</span>
+          </div>
+
+          <!-- Bottom Canvas Stats Bar -->
+          <div class="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[11px] text-slate-300 bg-slate-950/85 backdrop-blur p-2 rounded-xl border border-slate-800">
+            <div class="flex items-center gap-3">
+              <span>Autos: <strong id="car-count" class="text-indigo-400">0</strong></span>
+              <span>Motos: <strong id="moto-count" class="text-amber-400">0</strong></span>
+              <span>Buses: <strong id="bus-count" class="text-emerald-400">0</strong></span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="adjustSimDensity(-2)" class="bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-700">-</button>
+              <button onclick="adjustSimDensity(2)" class="bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-700">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Realtime Metrics -->
+        <div class="p-3 sm:p-4 grid grid-cols-3 gap-2 sm:gap-3 bg-slate-900 border-t border-slate-800">
+          <div class="bg-slate-950 p-2.5 sm:p-3 rounded-xl border border-slate-800/80 text-center sm:text-left">
+            <p class="text-slate-400 text-[11px] font-medium">Flujo Estimado</p>
+            <p class="text-base sm:text-lg font-bold text-slate-100 mt-0.5" id="metric-flow">36 <span class="text-[10px] text-slate-500 font-normal">v/m</span></p>
+          </div>
+          <div class="bg-slate-950 p-2.5 sm:p-3 rounded-xl border border-slate-800/80 text-center sm:text-left">
+            <p class="text-slate-400 text-[11px] font-medium">Velocidad Prom.</p>
+            <p class="text-base sm:text-lg font-bold text-emerald-400 mt-0.5" id="metric-speed">48 <span class="text-[10px] text-slate-500 font-normal">km/h</span></p>
+          </div>
+          <div class="bg-slate-950 p-2.5 sm:p-3 rounded-xl border border-slate-800/80 text-center sm:text-left">
+            <p class="text-slate-400 text-[11px] font-medium">Ocupación</p>
+            <p class="text-base sm:text-lg font-bold text-indigo-400 mt-0.5" id="metric-occupancy">24%</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Traffic Analytics Chart -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl w-full">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-xs sm:text-sm text-slate-200 flex items-center gap-2">
+            <i data-lucide="line-chart" class="w-4 h-4 text-indigo-400"></i> Densidad de Tráfico Histórica
+          </h3>
+          <span class="text-[10px] text-slate-400">IA Predictiva</span>
+        </div>
+        <div class="h-36 sm:h-40 w-full">
+          <canvas id="trafficChart"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- RIGHT COLUMN: Control Panel or Citizen View (5 Cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-6 w-full max-w-full">
+
+      <!-- VIEW A: AGENT CONTROL PANEL -->
+      <div id="panel-agent-view" class="flex flex-col gap-5 w-full">
+        
+        <!-- Actions Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl w-full">
+          <h2 class="font-bold text-sm sm:text-base text-slate-100 mb-1 flex items-center gap-2">
+            <i data-lucide="shield-alert" class="w-4 h-4 text-indigo-400"></i> Acciones del Agente de Tránsito
+          </h2>
+          <p class="text-xs text-slate-400 mb-4">Intervención operativa en tiempo real.</p>
+
+          <div class="space-y-3">
+            <button onclick="triggerEmergencyAlert()" class="w-full bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-semibold py-2.5 px-3 rounded-xl shadow-lg shadow-red-900/30 transition flex items-center justify-center gap-2 text-xs border border-red-500/30">
+              <i data-lucide="bell-ring" class="w-4 h-4 animate-bounce"></i>
+              Emitir Alarma de Congestión
+            </button>
+
+            <button onclick="dispatchAgents()" id="btn-dispatch" class="w-full bg-slate-800 hover:bg-slate-750 text-slate-200 font-semibold py-2.5 px-3 rounded-xl border border-slate-700 transition flex items-center justify-center gap-2 text-xs">
+              <i data-lucide="user-check" class="w-4 h-4 text-emerald-400"></i>
+              Desplegar Agentes a Zona Crítica
+            </button>
+
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-200">Semaforización Inteligente IA</p>
+                <p class="text-[10px] text-slate-400">Ajustar tiempo por volumen</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked class="sr-only peer" onchange="addLog('Semaforización IA modificada.')">
+                <div class="w-9 h-5 bg-slate-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logs Box -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl w-full">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-xs sm:text-sm text-slate-200 flex items-center gap-2">
+              <i data-lucide="list-tree" class="w-4 h-4 text-amber-400"></i> Bitácora de Eventos
+            </h3>
+            <button onclick="document.getElementById('event-log').innerHTML=''" class="text-[10px] text-slate-500 hover:text-slate-300">Limpiar</button>
+          </div>
+
+          <div id="event-log" class="space-y-2 overflow-y-auto max-h-48 text-[11px] font-mono">
+            <div class="p-2 rounded bg-slate-950 border border-slate-800/80 text-slate-300">
+              <span class="text-indigo-400">[Sistema]</span> SmartTráfico en línea.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- VIEW B: CITIZEN / PERSONAL NATURAL VIEW (Emerald/Cyan Theme) -->
+      <div id="panel-citizen-view" class="hidden flex-col gap-5 w-full">
+        
+        <div class="bg-gradient-to-b from-slate-900 to-emerald-950/40 border border-emerald-500/40 rounded-2xl p-4 sm:p-5 shadow-2xl w-full">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="font-bold text-sm sm:text-base text-emerald-300 flex items-center gap-2">
+              <i data-lucide="navigation" class="w-4 h-4 text-emerald-400"></i> Planificador de Ruta
+            </h2>
+            <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-semibold border border-emerald-500/30">Personal Natural</span>
+          </div>
+
+          <p class="text-xs text-emerald-100/70 mb-4">Calcula la mejor ruta evitando sectores congestionados.</p>
+
+          <form onsubmit="calculateCitizenRoute(event)" class="space-y-3">
+            <div>
+              <label class="text-[11px] text-emerald-300 font-medium block mb-1">Origen</label>
+              <select id="route-origin" class="w-full bg-slate-950 border border-emerald-800/80 text-emerald-100 text-xs rounded-xl p-2.5 focus:outline-none">
+                <option value="utp">Universidad Tecnológica (UTP)</option>
+                <option value="centro">Plaza de Bolívar / Centro</option>
+                <option value="cuba">Sector Cuba</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-[11px] text-emerald-300 font-medium block mb-1">Destino</label>
+              <select id="route-destination" class="w-full bg-slate-950 border border-emerald-800/80 text-emerald-100 text-xs rounded-xl p-2.5 focus:outline-none">
+                <option value="cuba">Sector Cuba</option>
+                <option value="centro">Plaza de Bolívar / Centro</option>
+                <option value="utp">Universidad Tecnológica (UTP)</option>
+              </select>
+            </div>
+
+            <button type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold py-2.5 rounded-xl transition text-xs shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+              <i data-lucide="sparkles" class="w-4 h-4 text-slate-950"></i> Calcular Ruta Más Rápida
+            </button>
+          </form>
+
+          <!-- Result Box -->
+          <div id="route-result" class="mt-4 p-3 bg-slate-950 rounded-xl border border-emerald-500/40 hidden">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-bold text-emerald-400">Ruta Sugerida</span>
+              <span class="text-[10px] text-cyan-300 font-mono bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800" id="route-time-saved">Ahorra ~10 min</span>
+            </div>
+            <p class="text-xs font-semibold text-emerald-200 mb-1" id="route-title">Por Variante / Av. Sur</p>
+            <p class="text-[11px] text-slate-300" id="route-desc">La IA detectó menor volumen de vehículos en esta arteria.</p>
+          </div>
+        </div>
+
+        <!-- Sector Status Grid -->
+        <div class="bg-slate-900 border border-emerald-500/30 rounded-2xl p-4 shadow-xl w-full">
+          <h3 class="font-semibold text-xs sm:text-sm text-emerald-300 mb-3 flex items-center gap-2">
+            <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i> Puntos Clave de la Ciudad
+          </h3>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="p-2 rounded-xl bg-slate-950 border border-emerald-900/50 flex items-center justify-between">
+              <span class="truncate text-slate-300 text-[11px]">Av. 30 de Agosto</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-emerald-900/50 flex items-center justify-between">
+              <span class="truncate text-slate-300 text-[11px]">Centro Cra 8</span>
+              <span class="w-2 h-2 rounded-full bg-red-500"></span>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-emerald-900/50 flex items-center justify-between">
+              <span class="truncate text-slate-300 text-[11px]">Entrada UTP</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-emerald-900/50 flex items-center justify-between">
+              <span class="truncate text-slate-300 text-[11px]">Viaducto</span>
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Notification Modal (Replaces alert()) -->
+  <div id="modal-container" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xs w-full p-5 shadow-2xl text-center">
+      <div class="w-10 h-10 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="info" class="w-5 h-5"></i>
+      </div>
+      <h3 id="modal-title" class="text-sm font-bold text-slate-100 mb-1">Notificación</h3>
+      <p id="modal-body" class="text-xs text-slate-400 mb-4">Mensaje del sistema.</p>
+      <button onclick="closeModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold py-2 rounded-xl border border-slate-700">
+        Entendido
+      </button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-slate-900 border-t border-slate-800 py-3 mt-auto w-full">
+    <div class="max-w-7xl mx-auto px-4 text-center text-[11px] text-slate-500">
+      SmartTráfico &copy; 2026 - Proyecto Introducción a la Ingeniería en Sistemas
+    </div>
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    let yoloActive = true;
+    let baseDensity = 10;
+    let vehicles = [];
+    let currentCam = 'cam1';
+
+    const camerasData = {
+      cam1: { code: 'CAM-01', name: 'Av. 30 de Agosto', density: 10 },
+      cam2: { code: 'CAM-02', name: 'Centro (Cra 8)', density: 20 },
+      cam3: { code: 'CAM-03', name: 'Entrada UTP', density: 6 },
+      cam4: { code: 'CAM-04', name: 'Viaducto', density: 15 }
+    };
+
+    // Canvas Setup
+    const canvas = document.getElementById('traffic-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function createVehicle(lane) {
+      const types = [
+        { type: 'car', label: 'Auto', color: '#818cf8', w: 30, h: 18, speed: 2 },
+        { type: 'moto', label: 'Moto', color: '#fbbf24', w: 16, h: 10, speed: 3 },
+        { type: 'bus', label: 'Bus', color: '#34d399', w: 45, h: 22, speed: 1.4 }
+      ];
+      const sel = types[Math.floor(Math.random() * types.length)];
+      const dir = lane % 2 === 0 ? 1 : -1;
+
+      return {
+        type: sel.type,
+        label: sel.label,
+        color: sel.color,
+        w: sel.w,
+        h: sel.h,
+        x: dir === 1 ? -50 : canvas.width + 50,
+        y: (canvas.height / 4) * (lane + 0.5),
+        speed: sel.speed * dir,
+        conf: (0.88 + Math.random() * 0.1).toFixed(2)
+      };
+    }
+
+    function initVehicles() {
+      vehicles = [];
+      for (let i = 0; i < baseDensity; i++) {
+        const v = createVehicle(Math.floor(Math.random() * 4));
+        v.x = Math.random() * canvas.width;
+        vehicles.push(v);
+      }
+    }
+
+    function drawSimulation() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Road background
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Lane dividers
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([12, 12]);
+      for (let i = 1; i < 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, (canvas.height / 4) * i);
+        ctx.lineTo(canvas.width, (canvas.height / 4) * i);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      let cars = 0, motos = 0, buses = 0;
+
+      vehicles.forEach((v, idx) => {
+        v.x += v.speed;
+
+        if (v.speed > 0 && v.x > canvas.width + 50) {
+          vehicles[idx] = createVehicle(Math.floor(Math.random() * 4));
+          vehicles[idx].x = -40;
+        } else if (v.speed < 0 && v.x < -50) {
+          vehicles[idx] = createVehicle(Math.floor(Math.random() * 4));
+          vehicles[idx].x = canvas.width + 40;
+        }
+
+        if (v.type === 'car') cars++;
+        if (v.type === 'moto') motos++;
+        if (v.type === 'bus') buses++;
+
+        // Draw Car Body
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(v.x, v.y - v.h/2, v.w, v.h);
+
+        // YOLO Bounding Box
+        if (yoloActive) {
+          ctx.strokeStyle = v.color;
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(v.x - 2, v.y - v.h/2 - 2, v.w + 4, v.h + 4);
+
+          ctx.fillStyle = v.color;
+          ctx.fillRect(v.x - 2, v.y - v.h/2 - 12, 55, 10);
+
+          ctx.fillStyle = '#090d16';
+          ctx.font = '8px monospace';
+          ctx.fillText(`${v.label} ${v.conf}`, v.x, v.y - v.h/2 - 4);
+        }
+      });
+
+      document.getElementById('car-count').innerText = cars;
+      document.getElementById('moto-count').innerText = motos;
+      document.getElementById('bus-count').innerText = buses;
+
+      updateStatus(vehicles.length);
+      requestAnimationFrame(drawSimulation);
+    }
+
+    function updateStatus(total) {
+      const badge = document.getElementById('status-badge');
+      const text = document.getElementById('status-text');
+
+      if (total < 9) {
+        badge.className = 'absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 glow-emerald';
+        text.innerText = 'FLUIDO';
+      } else if (total < 16) {
+        badge.className = 'absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 bg-amber-500/20 text-amber-400 border border-amber-500/40 glow-amber';
+        text.innerText = 'MODERADO';
+      } else {
+        badge.className = 'absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 bg-red-500/20 text-red-400 border border-red-500/40 glow-red';
+        text.innerText = 'CONGESTIÓN';
+      }
+
+      document.getElementById('metric-flow').innerHTML = `${total * 3} <span class="text-[10px] text-slate-500 font-normal">v/m</span>`;
+      document.getElementById('metric-occupancy').innerText = `${Math.min(100, Math.round((total / 22) * 100))}%`;
+    }
+
+    // Role Switcher Logic
+    function setMode(mode) {
+      const agentBtn = document.getElementById('btn-mode-agent');
+      const citizenBtn = document.getElementById('btn-mode-citizen');
+      const agentView = document.getElementById('panel-agent-view');
+      const citizenView = document.getElementById('panel-citizen-view');
+      const header = document.getElementById('main-header');
+      const logoBg = document.getElementById('app-logo-bg');
+      const versionTag = document.getElementById('app-version-tag');
+      const subtitle = document.getElementById('app-subtitle');
+
+      if (mode === 'agent') {
+        agentBtn.className = 'px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 bg-indigo-600 text-white shadow';
+        citizenBtn.className = 'px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white';
+        agentView.classList.remove('hidden');
+        agentView.classList.add('flex');
+        citizenView.classList.add('hidden');
+
+        header.className = 'bg-slate-900 border-b border-slate-800 sticky top-0 z-50 transition-colors duration-500 w-full';
+        logoBg.className = 'p-2 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/30 transition-all duration-500';
+        versionTag.className = 'bg-indigo-500/20 text-indigo-400 text-[10px] px-2 py-0.5 rounded-full font-medium border border-indigo-500/30';
+        versionTag.innerText = 'Agente';
+        subtitle.innerText = 'Monitoreo Urbano e Inteligencia Artificial';
+      } else {
+        citizenBtn.className = 'px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold shadow';
+        agentBtn.className = 'px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-2 text-slate-400 hover:text-white';
+        citizenView.classList.remove('hidden');
+        citizenView.classList.add('flex');
+        agentView.classList.add('hidden');
+
+        header.className = 'bg-slate-900 border-b border-emerald-500/40 sticky top-0 z-50 transition-colors duration-500 w-full';
+        logoBg.className = 'p-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl shadow-lg shadow-emerald-500/30 transition-all duration-500';
+        versionTag.className = 'bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-medium border border-emerald-500/40';
+        versionTag.innerText = 'Personal Natural';
+        subtitle.innerText = 'Asistente de Movilidad y Rutas Inteligentes';
+      }
+    }
+
+    function toggleYOLOOverlay() {
+      yoloActive = !yoloActive;
+      document.getElementById('yolo-status').innerText = yoloActive ? 'ACTIVA' : 'INACTIVA';
+      document.getElementById('yolo-status').className = yoloActive ? 'font-bold text-emerald-400' : 'font-bold text-slate-500';
+    }
+
+    function changeCamera(val) {
+      currentCam = val;
+      const data = camerasData[val];
+      document.getElementById('cam-code-display').innerText = data.code;
+      baseDensity = data.density;
+      initVehicles();
+      addLog(`Cámara cambiada a ${data.name}.`);
+    }
+
+    function adjustSimDensity(delta) {
+      baseDensity = Math.max(3, Math.min(25, baseDensity + delta));
+      initVehicles();
+    }
+
+    function triggerEmergencyAlert() {
+      showModal('⚠️ Alerta Enviada', 'Se reportó congestión alta a las unidades de tránsito cercanas.');
+      addLog('¡ALERTA DE CONGESTIÓN EMITIDA!');
+    }
+
+    function dispatchAgents() {
+      showModal('👮 Agentes Desplegados', 'Personal asignado a la intersección seleccionada.');
+      addLog('Agentes de tránsito desplegados al sector.');
+    }
+
+    function calculateCitizenRoute(e) {
+      e.preventDefault();
+      const o = document.getElementById('route-origin').value;
+      const d = document.getElementById('route-destination').value;
+
+      if (o === d) {
+        showModal('Atención', 'Selecciona un origen y destino diferentes.');
+        return;
+      }
+
+      document.getElementById('route-result').classList.remove('hidden');
+    }
+
+    function addLog(msg) {
+      const log = document.getElementById('event-log');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = 'p-2 rounded bg-slate-950 border border-slate-800/80 text-slate-300';
+      div.innerHTML = `<span class="text-indigo-400">[${time}]</span> ${msg}`;
+      log.prepend(div);
+    }
+
+    function showModal(title, body) {
+      document.getElementById('modal-title').innerText = title;
+      document.getElementById('modal-body').innerText = body;
+      document.getElementById('modal-container').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-container').classList.add('hidden');
+    }
+
+    function initChart() {
+      const ctxChart = document.getElementById('trafficChart').getContext('2d');
+      new Chart(ctxChart, {
+        type: 'line',
+        data: {
+          labels: ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00'],
+          datasets: [{
+            data: [20, 85, 40, 55, 45, 90, 95],
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } } },
+            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } } }
+          }
+        }
+      });
+    }
+
+    window.onload = function() {
+      lucide.createIcons();
+      initVehicles();
+      drawSimulation();
+      initChart();
+    };
+  </script>
+</body>
+</html>
